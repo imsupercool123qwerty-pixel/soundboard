@@ -1,0 +1,38 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: soundboard
+      POSTGRES_USER: soundboard
+      POSTGRES_PASSWORD: soundboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://soundboard:soundboard@postgres:5432/soundboard
+      PUBLIC_URL: http://localhost:5173
+      STUN_SERVER: stun:stun.l.google.com:19302
+      ROOM_INACTIVE_MINUTES: 30
+      NODE_ENV: production
+    depends_on:
+      - postgres
+    volumes:
+      - ./frontend/dist:/app/frontend/dist
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  font-family: 'Space Grotesk', sans-serif;
+}
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #15151f;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a3a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a4a;
+}
+
+.glass {
+  backdrop-filter: blur(12px);
+  background: rgba(21, 21, 31, 0.8);
+}
+
+.sound-btn {
+  transition: all 0.15s ease;
+}
+.sound-btn:active {
+  transform: scale(0.92);
+}
+.sound-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(139,92,246,0.3);
+}
