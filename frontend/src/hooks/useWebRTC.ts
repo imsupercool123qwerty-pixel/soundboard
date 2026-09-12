@@ -8,10 +8,33 @@ interface Peer {
   stream?: MediaStream;
 }
 
+function getMicrophoneSupportError(): string | null {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return 'Microphone access is only available in a browser.';
+  }
+
+  // Browsers intentionally hide navigator.mediaDevices on insecure origins.
+  // localhost is treated as secure, but a LAN IP such as 192.168.x.x needs
+  // HTTPS before getUserMedia can be used.
+  if (window.isSecureContext === false) {
+    return 'Microphone access requires HTTPS. Open this app on localhost or use an HTTPS URL.';
+  }
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return 'This browser does not provide microphone access. Try a recent browser over HTTPS.';
+  }
+
+  return null;
+}
+
 export function useWebRTC(socket: Socket | null, roomCode: string, userId: string, users: { id: string }[], iceServers: RTCIceServer[], voiceVolume: number, isMuted: boolean) {
   const peersRef = useRef<Map<string, Peer>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const [micEnabled, setMicEnabled] = useState(false);
+  const [micError, setMicError] = useState<string | null>(() => getMicrophoneSupportError());
+  // Permission errors should be retryable after the user changes browser
+  // settings, while an insecure origin should keep the control disabled.
+  const voiceSupported = getMicrophoneSupportError() === null;
   const [speaking, setSpeaking] = useState(false);
   const [remoteVolumes, setRemoteVolumes] = useState<Map<string, number>>(new Map());
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -19,20 +42,41 @@ export function useWebRTC(socket: Socket | null, roomCode: string, userId: strin
 
   const getLocalStream = useCallback(async () => {
     if (localStreamRef.current) return localStreamRef.current;
+
+    const supportError = getMicrophoneSupportError();
+    if (supportError) {
+      setMicError(supportError);
+      throw new Error(supportError);
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      // The support check above narrows this for runtime purposes. Keep the
+      // optional call here as well so an unusual browser cannot throw the
+      // opaque "mediaDevices is undefined" TypeError.
+      const stream = await navigator.mediaDevices!.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       localStreamRef.current = stream;
-      // Setup analyser for speaking detection
+      setMicError(null);
+
+      // Setup analyser for speaking detection when Web Audio is available.
       const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioContext();
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyserRef.current = analyser;
+      if (AudioContext) {
+        const ctx = new AudioContext();
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+      }
+
       return stream;
-    } catch (e) {
-      console.error('Mic permission denied', e);
+    } catch (e: any) {
+      const message = e?.name === 'NotAllowedError'
+        ? 'Microphone permission was denied. Allow microphone access in your browser and try again.'
+        : e?.name === 'NotFoundError'
+          ? 'No microphone was found. Connect a microphone and try again.'
+          : 'Unable to access the microphone. Check your browser permissions and try again.';
+      setMicError(message);
+      console.warn('Microphone unavailable:', message);
       throw e;
     }
   }, []);
@@ -292,6 +336,8 @@ export function useWebRTC(socket: Socket | null, roomCode: string, userId: strin
     enableMic,
     disableMic,
     speaking,
+    micError,
+    voiceSupported,
     setUserVolume,
     remoteVolumes,
     peersCount: peersRef.current.size,

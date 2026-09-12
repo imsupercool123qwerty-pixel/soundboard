@@ -18,6 +18,7 @@ services:
     environment:
       PORT: 3001
       DATABASE_URL: postgresql://soundboard:soundboard@postgres:5432/soundboard
+      DB_CONNECTION_TIMEOUT_MS: 5000
       PUBLIC_URL: http://localhost:5173
       STUN_SERVER: stun:stun.l.google.com:19302
       ROOM_INACTIVE_MINUTES: 30

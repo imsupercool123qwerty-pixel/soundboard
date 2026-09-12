@@ -45,7 +45,7 @@ export default function RoomPage() {
     setVoiceVolume,
   } = useSounds(sounds);
 
-  const { micEnabled, enableMic, disableMic, speaking, setUserVolume, remoteVolumes } = useWebRTC(
+  const { micEnabled, enableMic, disableMic, speaking, micError, voiceSupported, setUserVolume, remoteVolumes } = useWebRTC(
     socket,
     roomCode || '',
     userId,
@@ -78,7 +78,11 @@ export default function RoomPage() {
   // Initialize socket
   useEffect(() => {
     if (!roomCode) return;
-    const s = io({ transports: ['websocket', 'polling'] });
+    // Use the current origin so local development, LAN access, and the
+    // production reverse proxy all share the same API and Socket.IO URL.
+    // Start with polling and let Socket.IO upgrade when WebSockets are
+    // available; this keeps rooms usable behind proxies that block upgrades.
+    const s = io({ transports: ['polling', 'websocket'], upgrade: true });
     setSocket(s);
 
     s.on('connect', () => {
@@ -321,7 +325,7 @@ export default function RoomPage() {
             <div className="text-[11px] mono text-zinc-500 mb-3">VOICE CONTROLS</div>
             <div className="rounded-xl bg-[#15151f] border border-[#2a2a3a] p-4 space-y-4 mb-6">
               <div className="flex gap-2">
-                <button onClick={micEnabled ? disableMic : enableMic} className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition flex items-center justify-center gap-2 ${micEnabled ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-white text-black hover:bg-zinc-200'}`}>
+                <button onClick={micEnabled ? disableMic : enableMic} disabled={!micEnabled && !voiceSupported} className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition flex items-center justify-center gap-2 ${micEnabled ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-white text-black hover:bg-zinc-200'} disabled:cursor-not-allowed disabled:opacity-50`}>
                   {micEnabled ? '🎙️ Mic On' : '🔇 Mic Off'}
                 </button>
                 <button onClick={handleMuteToggle} disabled={!micEnabled} className={`px-4 py-2.5 rounded-xl text-sm font-medium transition ${isMuted ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-white/10 hover:bg-white/20'} disabled:opacity-50`}>
@@ -332,6 +336,11 @@ export default function RoomPage() {
                 <label className="text-xs text-zinc-400 flex items-center gap-2"><input type="checkbox" checked={pushToTalk} onChange={e => setPushToTalk(e.target.checked)} className="accent-violet-600" /> Push-to-talk</label>
                 {speaking && <span className="text-[11px] px-2 py-1 rounded-full bg-green-500/20 text-green-300 border border-green-500/30 animate-pulse">Speaking...</span>}
               </div>
+              {micError && (
+                <p className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+                  {micError}
+                </p>
+              )}
               {pushToTalk && micEnabled && (
                 <button
                   onMouseDown={() => setIsPushing(true)}
@@ -414,7 +423,7 @@ export default function RoomPage() {
           {/* Mobile voice controls */}
           <div className="lg:hidden p-4 border-t border-[#1e1e2a] bg-[#0f0f17] flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <button onClick={micEnabled ? disableMic : enableMic} className={`px-4 py-2.5 rounded-xl text-sm font-medium ${micEnabled ? 'bg-emerald-600 text-white' : 'bg-white text-black'}`}>{micEnabled ? '🎙️ On' : '🔇 Off'}</button>
+              <button onClick={micEnabled ? disableMic : enableMic} disabled={!micEnabled && !voiceSupported} title={micError || undefined} className={`px-4 py-2.5 rounded-xl text-sm font-medium ${micEnabled ? 'bg-emerald-600 text-white' : 'bg-white text-black'} disabled:cursor-not-allowed disabled:opacity-50`}>{micEnabled ? '🎙️ On' : '🔇 Off'}</button>
               <button onClick={handleMuteToggle} className={`px-4 py-2.5 rounded-xl text-sm ${isMuted ? 'bg-red-500/20 text-red-300' : 'bg-white/10'}`}>{isMuted ? 'Muted' : 'Mute'}</button>
             </div>
             <div className="flex items-center gap-2">

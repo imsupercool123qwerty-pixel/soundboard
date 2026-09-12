@@ -4,6 +4,7 @@ dotenv.config();
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   databaseUrl: process.env.DATABASE_URL || '',
+  databaseConnectionTimeoutMs: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS || '5000', 10),
   redisUrl: process.env.REDIS_URL || '',
   publicUrl: process.env.PUBLIC_URL || 'http://localhost:5173',
   stunServer: process.env.STUN_SERVER || 'stun:stun.l.google.com:19302',

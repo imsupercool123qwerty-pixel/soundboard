@@ -79,7 +79,9 @@ Open http://localhost:5173
 
 ```env
 PORT=3001
-DATABASE_URL=postgresql://user:pass@localhost:5432/soundboard
+# Optional for local development; leave empty to use in-memory room storage.
+DATABASE_URL=
+DB_CONNECTION_TIMEOUT_MS=5000
 REDIS_URL=
 PUBLIC_URL=http://localhost:5173
 STUN_SERVER=stun:stun.l.google.com:19302
@@ -93,6 +95,12 @@ NODE_ENV=development
 - `DATABASE_URL` optional — if not set, uses in-memory storage
 - `TURN_*` optional but recommended for restrictive NATs
 - `ROOM_INACTIVE_MINUTES` — auto-remove inactive rooms
+
+### Local development troubleshooting
+
+- **`getaddrinfo ENOTFOUND ...supabase.co`**: `DATABASE_URL` points at a Supabase project whose hostname is unavailable (for example, a paused/deleted project or an old connection string). Copy the current PostgreSQL connection string from Supabase, or clear `DATABASE_URL` for the in-memory local store. The backend will continue to start without a database.
+- **Microphone access is unavailable**: browsers only expose `getUserMedia` in a secure context. Use `http://localhost:5173` locally, or serve the app over HTTPS when opening it through a LAN IP or another host.
+- **Vite repeatedly connects to port 443 / HMR fails**: do not hard-code the HMR client port. This project derives it from the page URL so both `localhost` and LAN development work.
 
 ## Database Schema (PostgreSQL)
 
