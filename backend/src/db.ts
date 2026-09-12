@@ -6,8 +6,15 @@ let pool: pg.Pool | null = null;
 export function getPool(): pg.Pool | null {
   if (!config.databaseUrl) return null;
   if (!pool) {
-    pool = new pg.Pool({ connectionString: config.databaseUrl });
-    pool.on('error', (err) => console.error('PG pool error', err));
+    pool = new pg.Pool({
+      connectionString: config.databaseUrl,
+      // Do not hold the whole server startup hostage when an optional
+      // database is paused, misconfigured, or unreachable.
+      connectionTimeoutMillis: config.databaseConnectionTimeoutMs,
+    });
+    pool.on('error', (err: any) => {
+      console.warn(`Postgres pool unavailable (${err?.code || err?.message || 'unknown error'})`);
+    });
   }
   return pool;
 }
@@ -52,7 +59,18 @@ export async function initDb() {
       );
     `);
     console.log('Postgres tables ensured');
-  } catch (e) {
-    console.error('Failed to init DB', e);
+  } catch (e: any) {
+    const reason = e?.code || e?.message || 'unknown error';
+    console.warn(`Database unavailable (${reason}); continuing with in-memory storage.`);
+    console.warn('Set DATABASE_URL to a reachable PostgreSQL database, or leave it empty for local development.');
+
+    // The app is deliberately usable without Postgres. Close the failed pool
+    // so pg does not keep retrying a bad hostname in the background.
+    try {
+      await p.end();
+    } catch {
+      // The original connection error is the useful diagnostic.
+    }
+    pool = null;
   }
 }
